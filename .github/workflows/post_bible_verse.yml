@@ -1,0 +1,54 @@
+name: Post Bible Verse of the Day
+
+on:
+  schedule:
+    # Runs daily at 07:00 UTC (10:00 EAT / East Africa Time)
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (print verse without posting)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  post-verse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install tweepy==4.14.0
+
+      - name: Post Bible verse (dry run)
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          python -c "
+          from scripts.post_bible_verse import pick_verse, build_post
+          ref, text = pick_verse()
+          post = build_post(ref, text)
+          print('DRY RUN — would post:')
+          print(post)
+          print(f'Characters: {len(post)}/280')
+          "
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+      - name: Post Bible verse to X
+        if: github.event.inputs.dry_run != 'true'
+        run: python scripts/post_bible_verse.py
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
